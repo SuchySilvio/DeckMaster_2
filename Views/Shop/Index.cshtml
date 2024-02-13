@@ -1,0 +1,214 @@
+﻿@model IEnumerable<DeckMaster.Models.Product>
+
+@{
+    ViewData["Title"] = "Products - Deck Master";
+}
+
+@foreach (var item in Model)
+{
+    <div class="row">
+        <div class="col-sm-4">
+            <div class="row">
+                <div class="col-lg-6"></div>
+                <div class="col-lg-6">
+                    <img src="~/Images/@item.ImageName" alt="Pack of cards" style="max-width: 100%;" />
+                    <div class=""
+                         style="color:#cc0000; font-size: 1.5em; text-align: center;">
+                        <span>$</span><span id="amount_@item.ID">@Html.DisplayFor(modelItem => item.Price)</span>
+                        <span class="currency">@Html.DisplayFor(modelItem => item.Currency)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-8 col-md-4"
+             style="padding-top: 20px;">
+            @Html.DisplayFor(modelItem => item.Description)
+        </div>
+        <div class="col-sm-4 d-md-block">
+            <div class="buttons-div">
+                <a id="add_@item.ID"
+                   class="nav-link text-dark btn btn-primary btn-sm"
+                   onclick="addItem(@item.ID)"
+                   style="background-color: #6e0b14; border-color: #6e0b14;color: #fff !important; width: 160px;">
+                    Add to Cart
+                </a>
+                <a id="remove_@item.ID"
+                   class="nav-link text-dark btn btn-primary btn-sm"
+                   onClick="removeItem(@item.ID)"
+                   style="background-color: #999999; border-color: #aaaaaa; color: #fff !important; width: 160px;">
+                    Remove from Cart
+                </a>
+            </div>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th style="text-align: center">
+                            Qty
+                        </th>
+                        <th style="text-align: center;">
+                            Amount
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="text-align: center;">
+                            <span id="quantity_@item.ID">0</span>
+                        </td>
+                        <td style="text-align: center;">
+                            $<span id="totalAmount_@item.ID">0</span> CAD
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <hr />
+}
+
+<div class="row">
+    @if (User.Identity.IsAuthenticated)
+    {
+        <div class="col-sm-4 d-md-block" id="totals">
+            <div id="paypal-button-container">
+                <!-- PayPal button will be rendered here -->
+            </div>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>
+                            Items
+                        </th>
+                        <th>
+                            Amount
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <span id="summedQuantity">0</span>
+                        </td>
+                        <td>
+                            $<span id="summedAmount">0</span> CAD
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="form-group">
+            <a class="btn btn-primary"
+               style="border-color: #6e0b14; background-color: #6e0b14;"
+               href="/Identity/Account/Login">
+                Login to Purchase
+            </a>
+        </div>
+    }
+</div>
+
+<script type="text/javascript">
+    function addItem(id) {
+        var amountElement = document.getElementById('amount_' + id);
+        var amount = parseFloat(amountElement.innerHTML);
+        var quantityElement = document.getElementById('quantity_' + id);
+        var quantity = parseInt(quantityElement.innerHTML) + 1;
+        var totalamountElement = document.getElementById('totalAmount_' + id);
+        var totalAmount = totalamountElement.innerHTML;
+
+        var totalAmountInt = (amount * quantity).toFixed(2);
+
+        totalamountElement.innerHTML = totalAmountInt;
+        quantityElement.innerHTML = quantity;
+
+        updateTotals();
+    }
+
+    function removeItem(id) {
+        var quantityElement = document.getElementById('quantity_' + id);
+        var quantity = parseInt(quantityElement.innerHTML);
+
+        if (quantity > 0) {
+            quantity--;
+            quantityElement.innerHTML = quantity;
+
+            var amountElement = document.getElementById('amount_' + id);
+            var amount = parseFloat(amountElement.innerHTML);
+            var totalAmountElement = document.getElementById('totalAmount_' + id);
+
+            var totalAmountInt = amount * quantity;
+            totalAmountInt = totalAmountInt.toFixed(2);
+
+            totalAmountElement.innerHTML = totalAmountInt;
+
+            updateTotals();
+        }
+    }
+
+    function updateTotals() {
+        var totalQuantity = 0;
+        var totalAmount = 0;
+
+        var items = document.querySelectorAll("[id^='totalAmount_']");
+        items.forEach(function (element) {
+            var totalAmountInt = parseFloat(element.innerHTML);
+            totalQuantity += parseInt(element.parentNode.parentNode.querySelector("[id^='quantity_']").innerHTML);
+            totalAmount += totalAmountInt;
+        });
+
+        document.getElementById('summedQuantity').innerHTML = totalQuantity;
+        document.getElementById('summedAmount').innerHTML = totalAmount.toFixed(2);
+
+        console.log('-------------For-Testing-------------');
+        console.log('currency     ==> ' + document.querySelector('.currency').innerHTML);
+        console.log('summedAmount ==> ' + document.getElementById('summedAmount').innerHTML);
+    }
+</script>
+
+<script src="https://www.paypal.com/sdk/js?client-id=AU-5Y_dgmviC4ddJhqC2WGhGbVbfqGpFZp8DFFI0Zz_VlHpBiJKSj538A1QwC0kS2x7NCd5gWE0KBwXN"></script>
+
+<script>
+    paypal.Buttons({
+        // Set up the transaction
+        createOrder: function (data, actions) {
+            return actions.order.create({
+                purchase_units: [{
+                    amount: {
+                        value: document.getElementById('summedAmount').innerHTML,
+                        currency: document.querySelector('.currency').innerHTML
+                    }
+                }]
+            });
+        },
+        // Finalize the transaction
+        onApprove: function (data, actions) {
+            return actions.order.capture().then(function (details) {
+
+
+                // Redirect to the PayPalConfirmation action method
+                window.location.href =
+                    '/Shop/IPN?paymentID=' +
+                    encodeURIComponent(details.id) + '&amount=' +
+                    encodeURIComponent(details.purchase_units[0]
+                        .amount.value) + '&payerFirstName=' +
+                    encodeURIComponent(details.payer.name.given_name);
+            });
+        },
+
+
+        onCancel: function (data) {
+            alert('Transaction was cancelled.');
+        },
+        onError: function (err) {
+            alert('An error occurred during the transaction.');
+        },
+        style: {
+            layout: 'vertical', // 'vertical', 'horizontal'
+            color: 'blue',      // 'gold', 'blue', 'silver', 'black'
+            shape: 'rect',      // 'rect', 'pill'
+            label: 'paypal'     // 'checkout', 'pay', 'buynow', 'paypal'
+        }
+    }).render('#paypal-button-container');
+</script>
